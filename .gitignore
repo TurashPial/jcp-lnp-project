@@ -1,0 +1,44 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE/editor files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Generated output files
+*.dat
+*.npz
+*.npy
+*.pkl
+*.log
+*.out
+*.err
+
+# Generated figures
+*.png
+*.pdf
+*.jpg
+*.jpeg
+*.svg
+
+# Generated folders
+results/
+figures/
+Dz_time_series/
+results_RO*/
+results_R0*/
