@@ -13,8 +13,10 @@ code/
   LNP_KMC.py                      Kinetic Monte Carlo simulation
   run_parallel_kmc.py             Parallel runner for KMC simulations
   train_surface_potential_nn.py   Neural network model for nanoparticle surface potential with charge regulation
-  pei_DNA_polyplex_kmc.py       KMC simulation for PEI-DNA polyplex formation. 
+  pei_DNA_polyplex_kmc.py         KMC simulation for PEI-DNA polyplex formation. changeable to other cargo bu adjusting NT size
 
 data/
   psi_vs_R_25mM_noRNA.csv
   mixing_target_summary_5mM_10mM.csv
+  lnp_radius_vs_time_5mM_10mM.csv
+  trained surface potential file
