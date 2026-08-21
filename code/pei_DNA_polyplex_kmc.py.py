@@ -1,3 +1,5 @@
+## kMC code for PEI/DNA systems##
+
 import numpy as np
 import math
 from random import choices, expovariate
@@ -17,7 +19,7 @@ except:
     USE_NN = False
     print(" No NN model - using analytical formula")
 
-R_values = np.linspace(1, 30, 50)
+R_values = np.linspace(1, 30, 50)  ## can strat from larger than 1 as none of the DNA or PEI is close to 1 nm, anyways
 XRNA_values = np.linspace(0, 1, 50)
 
 
@@ -42,32 +44,30 @@ def run_simulation_pei_sirna(csalt,N0=2500, try_id=1, seed=None,NP_ratio_target=
         np.random.seed(seed)
 
     # ---- constants ----
-    eta = 0.001
-    Aham = 0.7
+    eta = 0.001   # for water, no mix
+    Aham = 0.7     # hamaker
     temperature = 298
     lB = 0.71
     gELON = 1
-    fw=0.2
-
-    # Debye length
-    lD = 1 / np.sqrt(8 * math.pi * lB * 0.60223 * csalt)
+    fw=0.2  #assume similar water concnet in complex as RNA-LNPs. need better MD to be exact, for another time. 
+    lD = 1 / np.sqrt(8 * math.pi * lB * 0.60223 * csalt)     # Debye length
 
     psi_interp_func = get_psi_interpolator(csalt)
 
     # ---- siRNA / PEI parameters; (change values for other cargos) ----
-    siRNA_bp = 2200 # this is 4.4 kb DNA, not sirna
+    siRNA_bp = 2200 # this is 4.4 kb DNA, not sirna, excume my laziness. as this code is modified from sirna code.
     siRNA_nt = 2 * siRNA_bp + 4
     phosphates_per_siRNA = siRNA_nt
 
     siRNA_length = siRNA_bp * 0.3
     siRNA_diameter = 2.3
-    V_siRNA = math.pi * (siRNA_diameter/2)**2 * siRNA_length
+    V_siRNA = math.pi * (siRNA_diameter/2)**2 * length ##  we are assuming like a cylinder or rope like which can take any shape. 
     R_siRNA = (3 * V_siRNA / (4 * math.pi))**(1/3)
 
-    PEI_MW = 25000
+    PEI_MW = 25000 ## similar to experiment
     MW_monomer = 43
     nitrogens_per_PEI = PEI_MW / MW_monomer
-    R_PEI = 0.30 * nitrogens_per_PEI ** 0.588
+    R_PEI = 0.30 * nitrogens_per_PEI ** 0.588  # from lit, this is the suggest charge 
     vRNA = V_siRNA
     vPEI = (4.0/3.0) * math.pi * R_PEI**3
 
@@ -91,11 +91,6 @@ def run_simulation_pei_sirna(csalt,N0=2500, try_id=1, seed=None,NP_ratio_target=
     # ---- lnpa: [R, fipeg, firna, psi] ----
     lnpa = np.full((N0, 4), -1.0)
 
-    phosphates_per_siRNA = siRNA_nt
-
-
-    PEI_per_siRNA = NP_ratio_target * phosphates_per_siRNA / nitrogens_per_PEI
-
     N_rna = int(round(N0 / (1.0 + PEI_per_siRNA)))
     # 1) set radii
     lnpa[:N_rna, 0] = R_siRNA
@@ -105,8 +100,6 @@ def run_simulation_pei_sirna(csalt,N0=2500, try_id=1, seed=None,NP_ratio_target=
     lnpa[:N_rna, 2] = 1 #all rna
     lnpa[N_rna:, 2] = 0 #all pei
     lnpa[:, 3] = 0.0
-
-
 
     def get_psi(lnpa, i):
         R = np.clip(lnpa[i, 0], R_values[0], R_values[-1])
@@ -130,16 +123,16 @@ def run_simulation_pei_sirna(csalt,N0=2500, try_id=1, seed=None,NP_ratio_target=
                 if lnpa[n1, 3] * lnpa[j, 3] > 200:
                     Wbmax[j] = -mW(np.linspace(0.1, 2, num=50), n1, j).min()
         cfactor = 1.38e-23 * temperature 
-        rate[:nmax] = cfactor * 2 / (3 * eta) * (lnpa[n1, 0] + lnpa[:nmax, 0]) ** 2 / (lnpa[n1, 0] * lnpa[:nmax, 0]) * np.exp( - Wbmax)
+        rate[:nmax] = cfactor * 2 / (3 * eta) * (lnpa[n1, 0] + lnpa[:nmax, 0]) ** 2 / (lnpa[n1, 0] * lnpa[:nmax, 0]) * np.exp( - Wbmax) ## no peg
             
         tol = 1e-12
         x1 = lnpa[n1, 2]
         x2 = lnpa[:nmax, 2]
 
-        # PEI-only <-> RNA-containing (RNA-only or complex)
+        # PEI-only <-> RNA-only or complex
         allowed = ((x1 < tol) & (x2 > tol)) | ((x1 > tol) & (x2 < tol))
 
-        # RNA-only <-> complex (RNA binds complex)
+        # RNA-only <-> complex 
         allowed |= ((x1 > 1 - tol) & (x2 > tol) & (x2 < 1 - tol))
         allowed |= ((x1 > tol) & (x1 < 1 - tol) & (x2 > 1 - tol))
         allowed |= ((x1 > tol) & (x1 < 1 - tol) & (x2 > tol) & (x2 < 1 - tol))
@@ -218,12 +211,10 @@ def run_simulation_pei_sirna(csalt,N0=2500, try_id=1, seed=None,NP_ratio_target=
         count_data.append(len(non_empty_rna))
         mean_data.append(np.mean(non_empty_rna))
         var_data.append(np.var(non_empty_rna))
-        firna = lnpa[:N, 2]
 
         nRNA = int(np.sum(firna == 1.0))                 # free siRNA particles
         nPEI = int(np.sum(firna == 0.0))                 # free PEI particles
         nPEC = int(np.sum((firna > 0.0) & (firna < 1.0)))# complexes
-        psi_new = lnpa[keep, 3]
 
         outfile.write(f"{time} {avR} {pdd} {empty} {nRNA} {nPEI} {nPEC} {psi_new}\n")
 
@@ -268,4 +259,4 @@ if __name__ == "__main__":
         sirna_conc_ug_per_mL=100.0
     )
 
-    print("Done. Output written to results/")
+    print("Done")
