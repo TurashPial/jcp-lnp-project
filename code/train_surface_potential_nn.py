@@ -1,8 +1,11 @@
+## this code doesn't account for different pH, will do in future code/paper/project##
+
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.neural_network import MLPRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.preprocessing import StandardScaler
 import joblib
 from scipy.optimize import root
 import datetime
@@ -51,14 +54,14 @@ def rho(psi, XL, XRNA, csalt, ttdpHL, ttdpHRNA, lb):
     return term1 + term2 + term3
 
 def rhoCR(R, XL, XRNA, csalt, ttdpHL, ttdpHRNA, lb):
-    """Find charge regulation density using root finding"""
+    """charge regulation density using root finding"""
     def equation(rhox):
         return rho(psiDH(rhox, R, csalt, lb), XL, XRNA, csalt, ttdpHL, ttdpHRNA, lb) - rhox
     sol = root(equation, 0.1)
     return sol.x[0] if sol.success else None
 
 # Generate training data
-print("\n[1] Generating training data...")
+print("Generating training data")
 R_values = np.linspace(1, 30, 20)
 XRNAx_values = np.linspace(0, 1, 20)
 csalt_values = np.linspace(0.005, 0.15, 10)
@@ -94,8 +97,6 @@ for FRR in FRR_values:
                         psi = 25 * psiDH(rhox, R, csalt, lb)
                         X_train.append([R, XRNAx, csalt, FRR])
                         y_train.append(psi)
-                    else:
-                        failed_count += 1
                 except:
                     failed_count += 1
 
@@ -107,13 +108,21 @@ X_train_split, X_val_split, y_train_split, y_val_split = train_test_split(
     X_train, y_train, test_size=0.2, random_state=42
 )
 
+# Scaling
+X_scaler = StandardScaler()
+y_scaler = StandardScaler()
+X_train_split_scaled = X_scaler.fit_transform(X_train_split)
+X_val_split_scaled = X_scaler.transform(X_val_split)
+y_train_split_scaled = y_scaler.fit_transform(y_train_split.reshape(-1, 1)).ravel()
+y_val_split_scaled = y_scaler.transform(y_val_split.reshape(-1, 1)).ravel()
+
+
 # Initialize MLPRegressor
-print("\n[3] Initializing Neural Network...")
+print("Initializing Neural Network...")
 model = MLPRegressor(
     hidden_layer_sizes=(20, 20, 20),
     activation='tanh',
     learning_rate_init=0.001,
-    max_iter=1,  # We will train manually
     random_state=42,
     alpha=0.001  # L2 regularization
 )
@@ -122,7 +131,7 @@ print(f"  Activation: tanh")
 print(f"  Learning rate: 0.001")
 
 # Training loop with manual early stopping
-print("\n[4] Training model...")
+print("Training model...")
 train_loss = []
 val_loss = []
 train_r2 = []
@@ -135,12 +144,15 @@ patience_counter = 0
 
 for i in range(2000):
     start_time = datetime.datetime.now()
-    model.partial_fit(X_train_split, y_train_split)
+    model.partial_fit(X_train_split_scaled, y_train_split_scaled)
     end_time = datetime.datetime.now()
     iteration_time.append((end_time - start_time).total_seconds())
 
-    y_train_pred = model.predict(X_train_split)
-    y_val_pred = model.predict(X_val_split)
+    y_train_pred_scaled = model.predict(X_train_split_scaled)
+    y_val_pred_scaled = model.predict(X_val_split_scaled)
+
+    y_train_pred = y_scaler.inverse_transform(y_train_pred_scaled.reshape(-1, 1)).ravel()
+    y_val_pred = y_scaler.inverse_transform(y_val_pred_scaled.reshape(-1, 1)).ravel()
     
     train_mse = mean_squared_error(y_train_split, y_train_pred)
     val_mse = mean_squared_error(y_val_split, y_val_pred)
@@ -167,13 +179,7 @@ for i in range(2000):
     if patience_counter >= patience:
         print(f"\n[Early Stop] Iteration {i}, validation loss hasn't improved for {patience} iterations.")
         break
-
-print(f"  Final Train MSE: {train_loss[-1]:.2f}")
-print(f"  Final Val MSE: {val_loss[-1]:.2f}")
-print(f"  Final Train R²: {train_r2[-1]:.4f}")
-print(f"  Final Val R²: {val_r2[-1]:.4f}")
 print(f"  Total iterations: {len(train_loss)}")
-print(f"  Average time per iteration: {np.mean(iteration_time):.4f} seconds")
 
 # Plot training and validation metrics
 fig, axes = plt.subplots(1, 2, figsize=(15, 5))
@@ -183,7 +189,6 @@ axes[0].plot(train_loss, label='Training Loss', linewidth=2)
 axes[0].plot(val_loss, label='Validation Loss', linewidth=2)
 axes[0].set_xlabel('Iteration')
 axes[0].set_ylabel('Mean Squared Error (MSE)')
-axes[0].set_title('Training vs Validation Loss')
 axes[0].legend()
 axes[0].grid(True, alpha=0.3)
 axes[0].set_yscale('log')
@@ -193,7 +198,6 @@ axes[1].plot(train_r2, label='Training R²', linewidth=2)
 axes[1].plot(val_r2, label='Validation R²', linewidth=2)
 axes[1].set_xlabel('Iteration')
 axes[1].set_ylabel('R² Score')
-axes[1].set_title('Training vs Validation R² Score')
 axes[1].legend()
 axes[1].grid(True, alpha=0.3)
 axes[1].axhline(y=1.0, color='k', linestyle='--', alpha=0.3)
@@ -203,9 +207,11 @@ plt.savefig('training_metrics_FRR.png', dpi=300, bbox_inches='tight')
 plt.show()
 
 # Prediction vs Actual plot
-print("\n[5] Generating prediction plots...")
-y_train_pred_final = model.predict(X_train_split)
-y_val_pred_final = model.predict(X_val_split)
+print("Generating prediction plots...")
+y_train_pred_final_scaled = model.predict(X_train_split_scaled)
+y_val_pred_final_scaled = model.predict(X_val_split_scaled)
+y_train_pred_final = y_scaler.inverse_transform(y_train_pred_final_scaled.reshape(-1, 1)).ravel()
+y_val_pred_final = y_scaler.inverse_transform(y_val_pred_final_scaled.reshape(-1, 1)).ravel()
 
 fig, axes = plt.subplots(1, 2, figsize=(14, 6))
 
@@ -216,7 +222,6 @@ axes[0].plot([y_train_split.min(), y_train_split.max()],
              'r--', lw=2, label='Perfect Prediction')
 axes[0].set_xlabel('Actual ψ [mV]')
 axes[0].set_ylabel('Predicted ψ [mV]')
-axes[0].set_title(f'Training Set\n(R² = {train_r2[-1]:.4f}, MSE = {train_loss[-1]:.2f})')
 axes[0].legend()
 axes[0].grid(True, alpha=0.3)
 
@@ -227,7 +232,6 @@ axes[1].plot([y_val_split.min(), y_val_split.max()],
              'r--', lw=2, label='Perfect Prediction')
 axes[1].set_xlabel('Actual ψ [mV]')
 axes[1].set_ylabel('Predicted ψ [mV]')
-axes[1].set_title(f'Validation Set\n(R² = {val_r2[-1]:.4f}, MSE = {val_loss[-1]:.2f})')
 axes[1].legend()
 axes[1].grid(True, alpha=0.3)
 
@@ -236,7 +240,6 @@ plt.savefig('prediction_accuracy_FRR.png', dpi=300, bbox_inches='tight')
 plt.show()
 
 # 3D Surface plots for different FRR values
-print("\n[6] Generating 3D surface plots for different FRR values...")
 R_test = np.linspace(1, 30, 30)
 XRNAx_test = np.linspace(0, 1, 30)
 R_grid, XRNAx_grid = np.meshgrid(R_test, XRNAx_test)
@@ -262,7 +265,9 @@ for idx, FRR in enumerate(FRR_to_plot):
             
             # Predict using neural network
             X_test = np.array([[R, XRNAx, csalt_fixed, FRR]])
-            psi_values_nn[i, j] = model.predict(X_test)[0]
+            X_test_scaled = X_scaler.transform(X_test)
+            psi_pred_scaled = model.predict(X_test_scaled)[0]
+            psi_values_nn[i, j] = y_scaler.inverse_transform([[psi_pred_scaled]])[0, 0]
     
     # Plot surface
     surf = ax.plot_surface(R_grid, XRNAx_grid, psi_values_nn, 
@@ -291,8 +296,13 @@ plt.show()
 
 # Save the model
 model.random_state = None
-joblib.dump(model, 'neural_network_model_FRR.pkl', protocol=4)
-print("[✔] Model saved as 'neural_network_model_FRR.pkl'")
+model_data = {
+    'model': model,
+    'scaler_X': X_scaler,
+    'scaler_y': y_scaler
+}
+
+joblib.dump(model_data, 'psi_neural_network.pkl', protocol=4)
 
 # Save model info
 model_info = {
@@ -311,28 +321,18 @@ model_info = {
     'iterations': len(train_loss)
 }
 
-joblib.dump(model_info, 'model_info_FRR.pkl')
-print(" Model info saved as 'model_info_FRR.pkl'")
+joblib.dump(model_info, 'model_info.pkl')
 
 # Create FRR conversion table
-print("\n" + "="*80)
-print("FRR CONVERSION TABLE")
-print("="*80)
-print(f"{'FRR':<10} {'Ratio':<15} {'Water %':<12} {'Ethanol %':<12} {'ε':<10} {'lb [nm]':<10}")
-print("-"*80)
 for FRR in [1, 2, 3, 4, 5, 6, 7, 8, 9]:
     water_frac = FRR_to_water_fraction(FRR)
     ethanol_frac = 1 - water_frac
     epsilon = epsilon_from_FRR(FRR)
     lb = lb_from_epsilon(epsilon)
     print(f"{FRR:<10} {FRR}:1{'':<11} {water_frac*100:<12.1f} {ethanol_frac*100:<12.1f} {epsilon:<10.2f} {lb:<10.3f}")
-print("="*80)
 
 # Test the model with example predictions
-print("\n[9] Example predictions:")
-print("-" * 90)
 print(f"{'R [nm]':<10} {'φ_RNA':<10} {'c_salt [M]':<12} {'FRR':<10} {'Water %':<12} {'Predicted ψ [mV]':<20}")
-print("-" * 90)
 
 test_cases = [
     [15, 0.5, 0.025, 9],
@@ -344,27 +344,9 @@ test_cases = [
 ]
 
 for case in test_cases:
-    pred = model.predict([case])[0]
+    X_case = np.array([case])
+    X_case_scaled = X_scaler.transform(X_case)
+    pred_scaled = model.predict(X_case_scaled)[0]
+    pred = y_scaler.inverse_transform([[pred_scaled]])[0, 0]
     water_pct = FRR_to_water_fraction(case[3]) * 100
     print(f"{case[0]:<10.1f} {case[1]:<10.2f} {case[2]:<12.3f} {case[3]}:1{'':<6} {water_pct:<12.0f} {pred:<20.2f}")
-
-print("-" * 90)
-
-# Create a summary report
-print("\n" + "="*80)
-print("TRAINING SUMMARY")
-print("="*80)
-print(f"Input Features: {', '.join(model_info['input_features'])}")
-print(f"Output: {model_info['output']}")
-print(f"FRR Range: {model_info['FRR_range'][0]} to {model_info['FRR_range'][1]}")
-print(f"Network Architecture: {model_info['architecture']}")
-print(f"Total Training Samples: {model_info['train_samples']}")
-print(f"Total Validation Samples: {model_info['val_samples']}")
-print(f"Training Iterations: {model_info['iterations']}")
-print(f"\nFinal Metrics:")
-print(f"  Training MSE: {model_info['final_train_mse']:.2f}")
-print(f"  Validation MSE: {model_info['final_val_mse']:.2f}")
-print(f"  Training R²: {model_info['final_train_r2']:.4f}")
-print(f"  Validation R²: {model_info['final_val_r2']:.4f}")
-print("="*80)
-print("\n All tasks completed successfully!")
