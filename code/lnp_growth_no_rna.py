@@ -1,5 +1,5 @@
 #### LNP growth without RNA, THP, 2026 ###
-#### Lipid concentrations: 10 mM and 5 mM ###
+#### Lipid concentrations: 10 and 5 ###
 
 import os
 import numpy as np
@@ -10,9 +10,8 @@ from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 
 
-# -----------------------------
+
 # Physical Constants & Parameters
-# -----------------------------
 Aham = 0.7         # Hamaker constant [kBT]
 RgPEG = 3.6          # PEG Flory radius [nm]
 fPEG = 0.015         # PEG volume fraction
@@ -31,9 +30,8 @@ lipid_concentrations = {
     "5 mg/ml lipid": 0.005     # mg/L
 }
 
-# -----------------------------
+
 # Load interpolated psi(R) data from CSV
-# -----------------------------
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 data_file = os.path.join(BASE_DIR, "data", "psi_vs_R_25mM_noRNA.csv")
 
@@ -46,18 +44,14 @@ interp_psi_mV = interp1d(
     fill_value="extrapolate"
 )
 
-# -----------------------------
 # Derived Parameters independent of cL
-# -----------------------------
 K2 = 2 * np.pi * RgPEG * fPEG / (3 * vL)              # [1/nm^2]
 lD = 1 / np.sqrt(8 * np.pi * lb * 0.60223 * csalt)   # Debye length [nm]
 
 print(f"K2 = {K2:.4e} 1/nm^2")
 print(f"Debye length = {lD:.4f} nm")
 
-# -----------------------------
 # DLVO Potential: vdW + Electrostatics
-# -----------------------------
 def Wdlvo(D, R, psi, lD):
     vdW = -Aham * R / (12 * D)
 
@@ -85,14 +79,11 @@ def Wb_dlvo(R, psi, lD):
     else:
         return np.nan
 
-# -----------------------------
-# Time grid
-# -----------------------------
-t_eval = np.logspace(-9, 0, 500)  # 1 ns to 1 s
 
-# -----------------------------
+
+t_eval = np.logspace(-9, 0, 500)  # 1 ns to 1 s, Time grid
+
 # Solve for each lipid concentration
-# -----------------------------
 all_results = {}
 
 plt.figure(figsize=(8, 5))
@@ -104,24 +95,16 @@ for label, cL in lipid_concentrations.items():
 
     print(f"{label}: cL = {cL:.4f} mol/L, K1 = {K1:.4e} nm^3/s")
 
-    # -----------------------------
+
     # Radius Growth ODE
-    # -----------------------------
     def dRdt(t, y):
         R = y[0]
-
         psi_mV = float(interp_psi_mV(R))
         psi = psi_mV * 1e-3 * e0 / (kB * T)  # dimensionless surface potential
-
         Wb = Wb_dlvo(R, psi, lD)
-
         dR = K1 * np.exp(-K2 * R**2 - Wb) / R**2
-
         return [dR]
 
-    # -----------------------------
-    # Solve ODE
-    # -----------------------------
     sol = solve_ivp(
         dRdt,
         [1e-9, 1e6],
@@ -155,9 +138,6 @@ for label, cL in lipid_concentrations.items():
 
     print(f" Saved {label} result to '{filename}'")
 
-# -----------------------------
-# Plot formatting
-# -----------------------------
 plt.xscale("log")
 plt.xlabel("Time (s)")
 plt.ylabel("LNP Radius R(t) [nm]")
@@ -167,9 +147,6 @@ plt.legend()
 plt.tight_layout()
 plt.show()
 
-# -----------------------------
-# Save combined CSV
-# -----------------------------
 combined_df = pd.DataFrame({
     "time_s": t_eval,
     "radius_nm_10mM": all_results["10 mM lipid"].y[0],
