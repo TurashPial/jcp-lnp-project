@@ -4,27 +4,22 @@ from scipy.integrate import solve_ivp
 import warnings
 warnings.filterwarnings('ignore')
 
-# -----------------------------
-# 1. Physical Constants
-# -----------------------------
+
+# Physical Constants
 kB = 1.380649e-23
 T = 298.15
-sigma = 0.010
-An = 2.0e25
-Vm = 1.0e-27
-MW_lipid = 0.600
+sigma = 0.010 # obtained from cited paper.
+An = 2.0e25  # obtained from cited paper. very specific to choemsity, systems etc. not universal. 
+Vm = 1.0e-27 # assumed lipid volume. 
+MW_lipid = 0.600 # lipid mass
 rho_lipid = 1000
-kg = 12
+kg = 12  #obtained from cited paper. 
 ENABLE_NUCLEATION = True
-
 kBT = kB * T
 
-# -----------------------------
-# 2. Solvent pure properties
-# -----------------------------
-MW_water, MW_ethanol = 0.018015, 0.04607
+# Solvent pure properties
+MW_water, MW_ethanol = 0.018015, 0.04607  # mapped with known solubity curve. values can be slight different depending on accuraccy of mapping to figure data. 
 rho_water, rho_ethanol = 1000, 789
-
 
 # Solubility model
 def solubility_mix(v_water, v_ethanol):
@@ -35,9 +30,7 @@ def solubility_mix(v_water, v_ethanol):
 FRR_values = [ 3,4,5,6,7,8, 9]
 C_eth_phase_values = [2,4,6,8, 10]
 
-# -----------------------------
 # Helper: build mixture and C0 from FRR and concentration multiplier
-# -----------------------------
 def mixture_from_FRR(FRR, C_eth_phase):
     # Volume fractions that sum to 1
     v_ethanol = 1.0 / (FRR + 1.0)
@@ -72,9 +65,9 @@ def mixture_from_FRR(FRR, C_eth_phase):
         'C0': C0
     }
 
-# -----------------------------
-# 3. z-average diameter calculation
-# -----------------------------
+
+# z-average diameter calculation
+
 def z_average_diameter(L, nL):
     num = np.trapz(nL * L**7, L)
     den = np.trapz(nL * L**6, L)
@@ -82,9 +75,7 @@ def z_average_diameter(L, nL):
         return np.nan
     return num / den
 
-# -----------------------------
-# 4. Simulation function
-# -----------------------------
+# Simulation function
 def run_simulation(mix, N=2000, t_span=(1e-6, 1.0), t_eval=None):
     if t_eval is None:
         t_eval = np.logspace(-6, 0, 500)
@@ -186,18 +177,10 @@ def run_simulation(mix, N=2000, t_span=(1e-6, 1.0), t_eval=None):
         'Dz_nm': Dz_nm
     }
 
-# -----------------------------
-# 5. Grid of FRR and concentration multipliers
-# -----------------------------
 
+# Grid of FRR and concentration multipliers
 
-# Storage for results
 results = {}
-
-print("\n" + "="*80)
-print("STARTING GRID SIMULATION: FRR x Concentration")
-print("="*80)
-
 for FRR in FRR_values:
     for C_eth_phase in C_eth_phase_values:
         mix = mixture_from_FRR(FRR, C_eth_phase)
@@ -208,12 +191,9 @@ for FRR in FRR_values:
         
         print(f"Done. Final Dz: {res['Dz_nm'][-1]:.2f} nm")
 
-print("="*80)
-
-# -----------------------------
-# 6. Save z-average diameter vs TIME data to file
-# -----------------------------
+# Save z-average diameter vs TIME data to file
 # Save full time series as numpy array
+
 data_dict = {}
 for key, res in results.items():
     FRR, C_eth_phase = key
@@ -246,9 +226,8 @@ with open('Dz_data_summary1.txt', 'w') as f:
         f.write(f"{FRR}\t{C_eth_phase:.1f}\t{C0:.4f}\t{final_Dz:.4f}\n")
 print("Summary saved to 'Dz_data_summary1.txt'")
 
-# -----------------------------
-# 7. Plot: Dz vs time for each FRR (separate subplots)
-# -----------------------------
+
+# Plot: Dz vs time for each FRR
 
 FRR_values1 = [ 3,9]
 C_eth_phase_values1 = [2,10]
@@ -279,14 +258,11 @@ plt.savefig('Dz_vs_time_FRR_grid1.png', dpi=150)
 plt.savefig('Dz_vs_time_FRR_grid1.pdf', dpi=150, bbox_inches='tight')  # Save as PDF
 plt.show()
 
+# Plot: Dz vs time for each Conc 
 
-# -----------------------------
-# 8. Plot: Dz vs time for each Conc (separate subplots)
-# -----------------------------
 fig, axes = plt.subplots(len(C_eth_phase_values1), 1, figsize=(6, 3*len(C_eth_phase_values1)))
 if len(C_eth_phase_values) == 1:
     axes = [axes]
-
 
 colors = plt.cm.plasma(np.linspace(0, .9, len(FRR_values)))
 
@@ -310,9 +286,8 @@ plt.savefig('Dz_vs_time_Conc_grid1.png', dpi=150)
 plt.savefig('Dz_vs_time_Conc_grid1.pdf', dpi=150, bbox_inches='tight')  # Save as PDF
 plt.show()
 
-# -----------------------------
-# 9. Heatmap: Final Dz as function of FRR and Conc
-# -----------------------------
+# Heatmap: Final Dz as function of FRR and Conc
+
 Dz_grid = np.zeros((len(FRR_values), len(C_eth_phase_values)))
 for i, FRR in enumerate(FRR_values):
     for j, C_eth_phase in enumerate(C_eth_phase_values):
@@ -332,9 +307,8 @@ plt.tight_layout()
 plt.savefig('Dz_final_heatmap1.png', dpi=150)
 plt.show()
 
-# -----------------------------
-# 10. 3D surface plot: Final Dz vs FRR and Conc
-# -----------------------------
+# 3D surface plot: Final Dz vs FRR and Conc
+
 from mpl_toolkits.mplot3d import Axes3D
 
 FRR_mesh, Conc_mesh = np.meshgrid(FRR_values, C_eth_phase_values)
@@ -352,5 +326,3 @@ fig.colorbar(surf, shrink=0.5, aspect=5)
 plt.tight_layout()
 plt.savefig('Dz_final_3D_surface1.png', dpi=150)
 plt.show()
-
-print("\nAll plots and time series data saved successfully!")
