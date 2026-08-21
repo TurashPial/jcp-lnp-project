@@ -8,7 +8,7 @@ def run_simulation(FRR, cL_ethanol, R0, N1=2000, try_id=0, seed=0):
 
     np.random.seed(seed)
 
-    # --- Dielectric properties from FRR (MUST BE CALCULATED FIRST) ---
+    # dielectric properties from FRR 
     water_frac = FRR / (FRR + 1)
     epsilon_water = 78.5
     epsilon_ethanol = 24.3
@@ -16,7 +16,7 @@ def run_simulation(FRR, cL_ethanol, R0, N1=2000, try_id=0, seed=0):
     lB = 0.71 * (78.5 / epsilon_r)  # Bjerrum length scales with dielectric
     dielectric_scaling = 78.5 / epsilon_r  # For scaling surface potentials
 
-    # --- Initial ---
+    # intialts
     cL = cL_ethanol / (FRR + 1)
     NP_ratio = 6
 
@@ -24,7 +24,7 @@ def run_simulation(FRR, cL_ethanol, R0, N1=2000, try_id=0, seed=0):
     c_RNA_mol_per_L = cL / NP_ratio / RNA_nt / 2  # mol/L
 
     vL = 3.0
-    fw = 0.2
+    fw = 0.2 #water fraction in rna-lnps
     NA = 6.022e23  # Avogadro's number
     c0 = cL * NA * vL / (4.0 * math.pi * (R0)**3) / (1.0 - fw)
     N_init_LNP = 2000
@@ -35,7 +35,7 @@ def run_simulation(FRR, cL_ethanol, R0, N1=2000, try_id=0, seed=0):
     lnp_with_rna = 0
     free_rna = N_RNA
 
-    # --- PARAMETERS ---
+    # parameters
     tot_particles = tot_LNPs + free_rna + lnp_with_rna
     f_with = lnp_with_rna / tot_particles
     free_rna_per_lnp = free_rna / N_init_LNP
@@ -51,10 +51,10 @@ def run_simulation(FRR, cL_ethanol, R0, N1=2000, try_id=0, seed=0):
 
     eta = 0.001
     vRNA = 601.0
-    RF = 3.6
-    Aham = 0.7
+    RF = 3.6  # for peg
+    Aham = 0.7 #hamaker
     temperature = 298.0
-    csalt = 0.025
+    csalt = 0.025 #salt conc
 
     # Debye length (depends on lB which depends on epsilon_r)
     lD = 1.0 / np.sqrt(8.0 * math.pi * lB * 0.60223 * csalt)
@@ -63,23 +63,18 @@ def run_simulation(FRR, cL_ethanol, R0, N1=2000, try_id=0, seed=0):
     rhoRNA = -2000.0 / vRNA
     rhoL = 1.0 / vL
     gfiRNAnp1 = 5.0 * rhoL / (5.0 * rhoL - 6.0 * rhoRNA)
-    gELON = 1  # electrostatics on initially
+    gELON = 1  # electrostatic is on initially
 
     c0 = cL * 0.6022 * 3.0 * vL / (4.0 * math.pi * R0**3) / (1.0 - fw)
     vol_system = N_init_LNP / c0
     
-    # Create output directory
+    # output directory
     output_dir = f"results_RO{R0}_cL{cL_ethanol}"
     os.makedirs(output_dir, exist_ok=True)
 
     # Print diagnostic information
-    print(f"\n{'='*70}")
-    print(f"SIMULATION SETUP")
-    print(f"{'='*70}")
-    print(f"FRR (H₂O:EtOH): {FRR}:1")
-    print(f"Water fraction: {water_frac*100:.1f}%")
     print(f"Dielectric constant (ε): {epsilon_r:.2f}")
-    print(f"Bjerrum length (lB): {lB:.4f} nm (reference: 0.71 nm in water)")
+    print(f"Bjerrum length (lB): {lB:.4f} nm ")
     print(f"Debye length (lD): {lD:.4f} nm")
     print(f"Dielectric scaling factor: {dielectric_scaling:.3f}")
     print(f"cL (ethanol): {cL_ethanol} mM")
@@ -87,15 +82,14 @@ def run_simulation(FRR, cL_ethanol, R0, N1=2000, try_id=0, seed=0):
     print(f"Salt: {csalt} M")
     print(f"Particles: Empty={N_empty_LNP}, RNA-LNP={N_RNA_LNP}, Free RNA={N_free_RNA}")
     print(f"System volume: {vol_system:.2e} nm³")
-    print(f"{'='*70}\n")
 
     np.random.seed(seed)
 
-    # Array of particle properties
+    # array of particle 
     lnpa = np.zeros((N0, 6), dtype=float)
     lnpa[:, :] = -1.0
 
-    # --- Fusion rules ---
+    #ffusion rules 
     def fusion_result(t1, t2):
         if t1 == 2 and t2 == 2:
             return False, None
@@ -103,12 +97,8 @@ def run_simulation(FRR, cL_ethanol, R0, N1=2000, try_id=0, seed=0):
             return True, 0
         return True, 1
 
-    # --- Core functions ---
+    # physics functions
     def get_psi(lnpa_arr, i):
-        """
-        Compute surface potential with DIELECTRIC SCALING.
-        Surface potential scales inversely with dielectric constant.
-        """
         ptype = int(lnpa_arr[i, 4])
         psi = 0.0
         
@@ -123,7 +113,7 @@ def run_simulation(FRR, cL_ethanol, R0, N1=2000, try_id=0, seed=0):
             fiRNA_particle = 0.0
             if lnpa_arr[i, 0] > 0:
                 fiRNA_particle = nRNA_particle * vRNA / (4.0 / 3.0 * math.pi * lnpa_arr[i, 0]**3 * (1.0 - fw))
-            psi_base = -130.0 * np.tanh(13.0 * np.tanh(lnpa_arr[i, 0] / 16.0) * (fiRNA_particle - gfiRNAnp1))
+            psi_base = -130.0 * np.tanh(13.0 * np.tanh(lnpa_arr[i, 0] / 16.0) * (fiRNA_particle - gfiRNAnp1)) ## not using NN as not changing csalt, ph etc. equation is fine. 
             psi = psi_base * dielectric_scaling  # Scale by dielectric
             
         elif ptype == 2:
@@ -134,16 +124,12 @@ def run_simulation(FRR, cL_ethanol, R0, N1=2000, try_id=0, seed=0):
         return lnpa_arr[i, 3]
 
     def mW(D, n1, n2):
-        """
-        Interaction potential with CORRECT dielectric constant.
-        """
         r1 = lnpa[n1, 0]
         r2 = lnpa[n2, 0]
         psi1 = lnpa[n1, 3]
         psi2 = lnpa[n2, 3]
-
-        # Prefactor now uses actual epsilon_r (not hardcoded 80)
-        pref = 0.85 * epsilon_r * 8.85e-4 / (1.38 * temperature * 4.0)
+        
+        pref = 0.85 * epsilon_r * 8.85e-4 / (1.38 * temperature * 4.0)    # Prefactor now uses actual epsilon_r (not hardcoded 80)
         
         D = np.array(D, dtype=float)
         denom_rad = (r1 + r2) if (r1 + r2) != 0 else 1e-12
@@ -162,9 +148,6 @@ def run_simulation(FRR, cL_ethanol, R0, N1=2000, try_id=0, seed=0):
         return -W
 
     def get_rate1(lnpa_arr, n1, nmax, rate_out):
-        """
-        Calculate rates with safety checks.
-        """
         type1 = int(lnpa_arr[n1, 4])
         rate_out[:nmax] = 0.0
         
@@ -181,7 +164,7 @@ def run_simulation(FRR, cL_ethanol, R0, N1=2000, try_id=0, seed=0):
                 rate_out[j] = 0.0
                 continue
 
-            # RNA interactions (simplified)
+            # RNA interactions
             if (type1 == 2 and type2 in [0, 1]) or (type1 in [0, 1] and type2 == 2):
                 cfactor = 1.38e-23 * temperature * 1e27
                 rate_out[j] = cfactor * 2.0 / (3.0 * eta)
@@ -247,7 +230,7 @@ def run_simulation(FRR, cL_ethanol, R0, N1=2000, try_id=0, seed=0):
 
         lnpa_arr[nmax - 1, :] = np.array([-1.0, -1.0, -1.0, 0.0, -1.0, -1.0], dtype=float)
 
-    # --- INITIALIZATION ---
+    # starting
     lnpa[:N_empty_LNP, 0] = R0 * (1.0 + 0.3 * np.random.normal(size=N_empty_LNP))
     lnpa[:N_empty_LNP, 1] = fiPEG0 * (1.0 + 0.3 * np.random.normal(size=N_empty_LNP))
     lnpa[:N_empty_LNP, 2] = 0.0
@@ -272,19 +255,17 @@ def run_simulation(FRR, cL_ethanol, R0, N1=2000, try_id=0, seed=0):
     lnpa[start_idx:, 5] = 1.0
 
     # Compute psi
-    print("Computing initial surface potentials...")
     for i in range(N0):
         if lnpa[i, 0] > 0:
             get_psi(lnpa, i)
     
-    # Check initial potentials
+    # check initial potentials
     psi_empty = np.mean(lnpa[lnpa[:, 4] == 0, 3])
     psi_rna = np.mean(lnpa[lnpa[:, 4] == 2, 3]) if N_free_RNA > 0 else 0
     print(f"Average psi (empty LNP): {psi_empty:.2f} mV")
     print(f"Average psi (free RNA): {psi_rna:.2f} mV")
 
     # Initialize rate matrix
-    print("Initializing rate matrix...")
     rate = np.zeros((N0, N0), dtype=float)
     for i in range(N0):
         if lnpa[i, 0] > 0:
@@ -294,14 +275,10 @@ def run_simulation(FRR, cL_ethanol, R0, N1=2000, try_id=0, seed=0):
     
     nonzero_rates = np.sum(rate > 0)
     total_possible = N0 * (N0 - 1) // 2
-    print(f"Nonzero rates: {nonzero_rates}/{total_possible}")
-    print(f"Max rate: {np.max(rate):.2e}")
-    if nonzero_rates > 0:
-        print(f"Min nonzero rate: {np.min(rate[rate > 0]):.2e}")
 
     choicesarr = [i for i in range(N0 * N0)]
 
-    # --- KMC SIMULATION ---
+    # kMC part
     N = N0
     time = 0.0
 
@@ -316,8 +293,6 @@ def run_simulation(FRR, cL_ethanol, R0, N1=2000, try_id=0, seed=0):
     outdwrite = False
     max_steps = 2000000
     step = 0
-    
-    print(f"Starting KMC simulation...")
 
     while N > 1 and time < 1e5 and step < max_steps:
         step += 1
