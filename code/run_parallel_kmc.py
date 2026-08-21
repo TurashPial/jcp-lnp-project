@@ -12,24 +12,9 @@ sys.path.append(os.path.dirname(__file__))
 # import simulation
 from LNP_KMC import run_simulation
 
-
-# =========================
-# HELPER FUNCTION
-# =========================
 def lipid_string_to_number_mM(lipid_string):
-    """
-    Converts lipid concentration string to numeric mM.
-
-    Examples:
-        '10 mM' -> 10.0
-        '5 mM'  -> 5.0
-    """
     return float(re.findall(r"[-+]?\d*\.\d+|\d+", str(lipid_string))[0])
 
-
-# =========================
-# TASK FUNCTION
-# =========================
 def task(params):
     try:
         FRR, conc_csv, R0, run_id = params
@@ -51,15 +36,11 @@ def task(params):
         return None
 
 
-# =========================
-# MAIN
-# =========================
+
+# main
 if __name__ == "__main__":
     start = time.time()
 
-    # -------------------------
-    # LOAD CSV
-    # -------------------------
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     input_csv = os.path.join(BASE_DIR, "data", "mixing_target_summary_5mM_10mM.csv")
     df = pd.read_csv(input_csv)
@@ -98,15 +79,9 @@ if __name__ == "__main__":
     print("\nInput conditions used:")
     print(input_df.to_string(index=False))
 
-    # -------------------------
-    # SLURM CORE DETECTION
-    # -------------------------
     n_cores = int(os.environ.get("SLURM_CPUS_ON_NODE", multiprocessing.cpu_count()))
     print(f"\n Using {n_cores} cores")
 
-    # -------------------------
-    # RUN PARALLEL
-    # -------------------------
     with Pool(processes=n_cores) as pool:
         results = list(
             tqdm(
@@ -115,9 +90,6 @@ if __name__ == "__main__":
             )
         )
 
-    # -------------------------
-    # RESULTS
-    # -------------------------
     results_clean = [r for r in results if r is not None]
 
     out_dir = "results"
