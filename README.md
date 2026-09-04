@@ -20,3 +20,5 @@ data/
   mixing_target_summary_5mM_10mM.csv
   lnp_radius_vs_time_5mM_10mM.csv
   trained surface potential file
+
+For citation: https://arxiv.org/abs/2609.04029
