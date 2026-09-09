@@ -21,4 +21,5 @@ data/
   lnp_radius_vs_time_5mM_10mM.csv
   trained surface potential file
 
+SQL for Lineage tree analysis: https://github.com/TurashPial/Merging_lineage_kMC
 For citation: https://arxiv.org/abs/2609.04029
